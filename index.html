@@ -267,6 +267,65 @@
   .copy-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   .copy-btn svg { width: 15px; height: 15px; }
 
+  .shorten-block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-top: 1px solid var(--line);
+    padding-top: 16px;
+  }
+
+  .shorten-row {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    overflow: hidden;
+  }
+
+  .shorten-prefix {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--muted);
+    padding: 11px 0 11px 12px;
+    white-space: nowrap;
+  }
+
+  .shorten-row input {
+    border: none;
+    background: transparent;
+    padding: 11px 12px 11px 2px;
+  }
+
+  .shorten-row input:focus { outline: none; }
+
+  .copy-btn.secondary {
+    background: transparent;
+    color: var(--accent-strong);
+    border: 1px solid var(--line);
+  }
+
+  .copy-btn.secondary:not(:disabled):hover { background: var(--accent-soft); }
+
+  .short-result {
+    font-size: 13px;
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+
+  .short-result.success {
+    background: var(--success-soft);
+    color: var(--success);
+    font-family: var(--mono);
+    word-break: break-all;
+  }
+
+  .short-result.error {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+
   .breakdown {
     font-size: 12px;
     color: var(--muted);
@@ -372,6 +431,18 @@
         <span id="copy-label">Copy link</span>
       </button>
 
+      <div class="shorten-block">
+        <p class="url-label">Short link (go.akka.app)</p>
+        <div class="shorten-row">
+          <span class="shorten-prefix">go.akka.app/</span>
+          <input type="text" id="slug" placeholder="javi" autocomplete="off" />
+        </div>
+        <button class="copy-btn secondary" id="shorten-btn" disabled>
+          <span id="shorten-label">Create short link</span>
+        </button>
+        <div class="short-result" id="short-result" hidden></div>
+      </div>
+
       <div class="breakdown" id="breakdown"></div>
     </div>
   </div>
@@ -395,7 +466,13 @@
   const copyLabel = document.getElementById('copy-label');
   const breakdown = document.getElementById('breakdown');
 
+  const slugInput = document.getElementById('slug');
+  const shortenBtn = document.getElementById('shorten-btn');
+  const shortenLabel = document.getElementById('shorten-label');
+  const shortResult = document.getElementById('short-result');
+
   const BASE = 'https://www.akka.app';
+  let slugTouched = false;
 
   function slugify(value) {
     return value
@@ -466,6 +543,9 @@
 
     copyBtn.disabled = !ok;
 
+    if (!slugTouched && data.who) slugInput.value = data.who;
+    shortenBtn.disabled = !ok || !slugify(slugInput.value);
+
     breakdown.innerHTML = `
       <div>source (Where?) → <span>${escapeHtml(data.where || '—')}</span></div>
       <div>medium (Who?) → <span>${escapeHtml(data.who || '—')}</span></div>
@@ -475,6 +555,12 @@
 
   [countrySel, landingSel, whereSel].forEach(el => el.addEventListener('change', update));
   [whoInput, whatInput].forEach(el => el.addEventListener('input', update));
+
+  slugInput.addEventListener('input', () => {
+    slugTouched = true;
+    shortResult.hidden = true;
+    update();
+  });
 
   copyBtn.addEventListener('click', () => {
     const data = currentUrl();
@@ -493,6 +579,38 @@
       document.execCommand('copy');
       document.body.removeChild(ta);
       done();
+    }
+  });
+
+  shortenBtn.addEventListener('click', async () => {
+    const data = currentUrl();
+    const slug = slugify(slugInput.value);
+    shortenBtn.disabled = true;
+    shortenLabel.textContent = 'Creating…';
+    shortResult.hidden = true;
+
+    try {
+      const res = await fetch('/api/shorten', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ longUrl: data.full, path: slug }),
+      });
+      const body = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(body.error || 'Could not create the short link.');
+      }
+
+      shortResult.className = 'short-result success';
+      shortResult.textContent = body.shortURL;
+      shortResult.hidden = false;
+    } catch (err) {
+      shortResult.className = 'short-result error';
+      shortResult.textContent = err.message || 'Could not create the short link.';
+      shortResult.hidden = false;
+    } finally {
+      shortenBtn.disabled = false;
+      shortenLabel.textContent = 'Create short link';
     }
   });
 
