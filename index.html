@@ -115,6 +115,12 @@
     .grid { grid-template-columns: 1fr; }
   }
 
+  .left-col {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
   .card {
     background: var(--surface);
     border: 1px solid var(--line);
@@ -122,7 +128,13 @@
     box-shadow: var(--shadow);
   }
 
-  .form-card { padding: 28px; }
+  .form-card, .slug-card { padding: 28px; }
+
+  .field .field-hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
 
   .field-group {
     display: flex;
@@ -360,6 +372,7 @@
   <p class="lede">Pick a market, a landing page, and who's sharing it and get a clean tracking link back. No UTM syntax required.</p>
 
   <div class="grid">
+    <div class="left-col">
     <div class="card form-card">
       <div class="field-group">
         <div class="row-2">
@@ -423,6 +436,18 @@
       </div>
     </div>
 
+    <div class="card slug-card">
+      <div class="field">
+        <label for="slug">Want a shorter link to share? (optional)</label>
+        <div class="shorten-row">
+          <span class="shorten-prefix">go.akka.app/</span>
+          <input type="text" id="slug" placeholder="javi" autocomplete="off" />
+        </div>
+        <p class="field-hint">Leave it blank and we'll use the collaborator's name.</p>
+      </div>
+    </div>
+    </div>
+
     <div class="card result-card">
       <div id="status-chip" class="status-chip warn">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 6v5M10 14h.01" stroke-linecap="round"/><circle cx="10" cy="10" r="8.3"/></svg>
@@ -442,10 +467,6 @@
 
       <div class="shorten-block">
         <p class="url-label">Short link (go.akka.app)</p>
-        <div class="shorten-row">
-          <span class="shorten-prefix">go.akka.app/</span>
-          <input type="text" id="slug" placeholder="javi" autocomplete="off" />
-        </div>
         <div class="shorten-actions">
           <button class="copy-btn secondary" id="shorten-btn" disabled>
             <span id="shorten-label">Create short link</span>
