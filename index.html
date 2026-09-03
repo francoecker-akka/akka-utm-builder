@@ -300,6 +300,15 @@
 
   .shorten-row input:focus { outline: none; }
 
+  .shorten-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .shorten-actions .copy-btn {
+    flex: 1;
+  }
+
   .copy-btn.secondary {
     background: transparent;
     color: var(--accent-strong);
@@ -437,9 +446,15 @@
           <span class="shorten-prefix">go.akka.app/</span>
           <input type="text" id="slug" placeholder="javi" autocomplete="off" />
         </div>
-        <button class="copy-btn secondary" id="shorten-btn" disabled>
-          <span id="shorten-label">Create short link</span>
-        </button>
+        <div class="shorten-actions">
+          <button class="copy-btn secondary" id="shorten-btn" disabled>
+            <span id="shorten-label">Create short link</span>
+          </button>
+          <button class="copy-btn secondary" id="copy-short-btn" disabled>
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6.5" y="6.5" width="10" height="11" rx="1.6"/><path d="M4.5 13.5h-1a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v1" stroke-linecap="round"/></svg>
+            <span id="copy-short-label">Copy short link</span>
+          </button>
+        </div>
         <div class="short-result" id="short-result" hidden></div>
       </div>
 
@@ -470,9 +485,31 @@
   const shortenBtn = document.getElementById('shorten-btn');
   const shortenLabel = document.getElementById('shorten-label');
   const shortResult = document.getElementById('short-result');
+  const copyShortBtn = document.getElementById('copy-short-btn');
+  const copyShortLabel = document.getElementById('copy-short-label');
 
   const BASE = 'https://www.akka.app';
   let slugTouched = false;
+  let lastShortUrl = '';
+  let lastLongUrl = '';
+
+  function copyText(text, labelEl, defaultText) {
+    const done = () => {
+      labelEl.textContent = 'Copied';
+      setTimeout(() => { labelEl.textContent = defaultText; }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(done);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      done();
+    }
+  }
 
   function slugify(value) {
     return value
@@ -546,6 +583,13 @@
     if (!slugTouched && data.who) slugInput.value = data.who;
     shortenBtn.disabled = !ok || !slugify(slugInput.value);
 
+    if (data.full !== lastLongUrl) {
+      lastLongUrl = data.full;
+      lastShortUrl = '';
+      copyShortBtn.disabled = true;
+      shortResult.hidden = true;
+    }
+
     breakdown.innerHTML = `
       <div>source (Where?) → <span>${escapeHtml(data.where || '—')}</span></div>
       <div>medium (Who?) → <span>${escapeHtml(data.who || '—')}</span></div>
@@ -559,27 +603,13 @@
   slugInput.addEventListener('input', () => {
     slugTouched = true;
     shortResult.hidden = true;
+    lastShortUrl = '';
+    copyShortBtn.disabled = true;
     update();
   });
 
   copyBtn.addEventListener('click', () => {
-    const data = currentUrl();
-    const text = data.full;
-    const done = () => {
-      copyLabel.textContent = 'Copied';
-      setTimeout(() => { copyLabel.textContent = 'Copy link'; }, 1500);
-    };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done).catch(done);
-    } else {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      done();
-    }
+    copyText(currentUrl().full, copyLabel, 'Copy link');
   });
 
   shortenBtn.addEventListener('click', async () => {
@@ -588,6 +618,7 @@
     shortenBtn.disabled = true;
     shortenLabel.textContent = 'Creating…';
     shortResult.hidden = true;
+    copyShortBtn.disabled = true;
 
     try {
       const res = await fetch('/api/shorten', {
@@ -601,9 +632,11 @@
         throw new Error(body.error || 'Could not create the short link.');
       }
 
+      lastShortUrl = body.shortURL;
       shortResult.className = 'short-result success';
       shortResult.textContent = body.shortURL;
       shortResult.hidden = false;
+      copyShortBtn.disabled = false;
     } catch (err) {
       shortResult.className = 'short-result error';
       shortResult.textContent = err.message || 'Could not create the short link.';
@@ -612,6 +645,11 @@
       shortenBtn.disabled = false;
       shortenLabel.textContent = 'Create short link';
     }
+  });
+
+  copyShortBtn.addEventListener('click', () => {
+    if (!lastShortUrl) return;
+    copyText(lastShortUrl, copyShortLabel, 'Copy short link');
   });
 
   update();
